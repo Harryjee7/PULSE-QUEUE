@@ -2429,7 +2429,14 @@ function PatientPublicView({ onBack }) {
 
   const queueOrderedPatients = useMemo(() => {
     return [...activePatients].sort((a, b) => {
-      return (a.waitMinutes || 0) - (b.waitMinutes || 0);
+      const aEmergency = a.status === "Emergency" ? 1 : 0;
+      const bEmergency = b.status === "Emergency" ? 1 : 0;
+
+      return (
+        bEmergency - aEmergency ||
+        (b.priority || 0) - (a.priority || 0) ||
+        (a.waitMinutes || 0) - (b.waitMinutes || 0)
+      );
     });
   }, [activePatients]);
 
@@ -2451,9 +2458,15 @@ function PatientPublicView({ onBack }) {
     return map;
   }, [queueOrderedPatients]);
 
+  // Waiting should NOT include Treatment
   const totalWaiting = activePatients.filter((p) =>
-    ["Waiting", "Emergency", "Treatment"].includes(p.status)
+    ["Waiting", "Emergency", "Critical", "Urgent", "Next", "Be prepared"].includes(
+      p.status
+    )
   ).length;
+
+  // Active still includes Treatment because activePatients excludes only completed
+  const activeCount = activePatients.length;
 
   const avgWait = activePatients.length
     ? Math.round(
@@ -2462,36 +2475,65 @@ function PatientPublicView({ onBack }) {
       )
     : 0;
 
+  const emergencyCount = activePatients.filter((p) =>
+    ["Emergency", "Critical", "Urgent"].includes(p.status)
+  ).length;
+
+  let loadLabel = "Low";
+  let loadColor = "var(--teal)";
+  let loadBg = "rgba(0,212,170,.12)";
+  let loadBorder = "rgba(0,212,170,.2)";
+
+  if (emergencyCount >= 2 || totalWaiting >= 8) {
+    loadLabel = "High";
+    loadColor = "#f87171";
+    loadBg = "rgba(239,68,68,.12)";
+    loadBorder = "rgba(239,68,68,.25)";
+  } else if (totalWaiting >= 4 || avgWait >= 15) {
+    loadLabel = "Moderate";
+    loadColor = "#fbbf24";
+    loadBg = "rgba(245,158,11,.12)";
+    loadBorder = "rgba(245,158,11,.25)";
+  }
+
   const formattedLastUpdated = lastUpdated
     ? lastUpdated.toLocaleTimeString([], {
-        hour:"numeric",
-        minute:"2-digit",
+        hour: "numeric",
+        minute: "2-digit",
       })
     : "—";
 
   return (
     <div
       style={{
-        minHeight:"100vh", padding:28, position:"relative", zIndex:1
+        minHeight: "100vh",
+        padding: 28,
+        position: "relative",
+        zIndex: 1,
       }}
     >
-      <div style={{ maxWidth:1100, margin:"0 auto" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div
           style={{
-            display:"flex", justifyContent:"space-between", alignItems:"flex-start",
-            marginBottom:28, gap:16
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            marginBottom: 28,
+            gap: 16,
           }}
         >
           <div>
-            <div style={{ fontSize:34, fontWeight:700, color:"var(--teal)" }}>
+            <div style={{ fontSize: 34, fontWeight: 700, color: "var(--teal)" }}>
               Patient View
             </div>
-            <div style={{ color:"#94a3b8", marginTop:6 }}>
+            <div style={{ color: "#94a3b8", marginTop: 6 }}>
               Public queue transparency view
             </div>
             <div
               style={{
-                marginTop:10, fontSize:13, color:"#64748b"
+                marginTop: 10,
+                fontSize: 13,
+                color: "#64748b",
               }}
             >
               Last updated: {formattedLastUpdated}
@@ -2501,8 +2543,12 @@ function PatientPublicView({ onBack }) {
           <button
             onClick={onBack}
             style={{
-              background:"rgba(255,255,255,.06)", border:"1px solid var(--bdr)",
-              color:"var(--text)", padding:"10px 16px", borderRadius:10, fontWeight:600
+              background: "rgba(255,255,255,.06)",
+              border: "1px solid var(--bdr)",
+              color: "var(--text)",
+              padding: "10px 16px",
+              borderRadius: 10,
+              fontWeight: 600,
             }}
           >
             Back
@@ -2510,75 +2556,134 @@ function PatientPublicView({ onBack }) {
         </div>
 
         {loading ? (
-          <div style={{ color:"#94a3b8" }}>Loading patient queue…</div>
+          <div style={{ color: "#94a3b8" }}>Loading patient queue…</div>
         ) : (
           <>
             <div
               style={{
-                display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16, marginBottom:28
+                display: "grid",
+                gridTemplateColumns: "repeat(4,1fr)",
+                gap: 16,
+                marginBottom: 28,
               }}
             >
               <div
                 style={{
-                  background:"var(--surf)", border:"1px solid var(--bdr)", borderRadius:16, padding:24
+                  background: "var(--surf)",
+                  border: "1px solid var(--bdr)",
+                  borderRadius: 16,
+                  padding: 24,
                 }}
               >
-                <div style={{ fontSize:34, fontWeight:700 }}>{totalWaiting}</div>
-                <div style={{ color:"#64748b", marginTop:6 }}>
+                <div style={{ fontSize: 34, fontWeight: 700 }}>{totalWaiting}</div>
+                <div style={{ color: "#64748b", marginTop: 6 }}>
                   Patients Waiting
                 </div>
               </div>
 
               <div
                 style={{
-                  background:"var(--surf)", border:"1px solid var(--bdr)", borderRadius:16, padding:24
+                  background: "var(--surf)",
+                  border: "1px solid var(--bdr)",
+                  borderRadius: 16,
+                  padding: 24,
                 }}
               >
-                <div style={{ fontSize:34, fontWeight:700 }}>{avgWait} min</div>
-                <div style={{ color:"#64748b", marginTop:6 }}>
+                <div style={{ fontSize: 34, fontWeight: 700 }}>{avgWait} min</div>
+                <div style={{ color: "#64748b", marginTop: 6 }}>
                   Average Wait Time
                 </div>
               </div>
 
               <div
                 style={{
-                  background:"var(--surf)", border:"1px solid var(--bdr)", borderRadius:16, padding:24
+                  background: "var(--surf)",
+                  border: "1px solid var(--bdr)",
+                  borderRadius: 16,
+                  padding: 24,
                 }}
               >
-                <div style={{ fontSize:34, fontWeight:700 }}>
-                  {activePatients.length}
-                </div>
-                <div style={{ color:"#64748b", marginTop:6 }}>
+                <div style={{ fontSize: 34, fontWeight: 700 }}>{activeCount}</div>
+                <div style={{ color: "#64748b", marginTop: 6 }}>
                   Active Patients
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: "var(--surf)",
+                  border: `1px solid ${loadBorder}`,
+                  borderRadius: 16,
+                  padding: 24,
+                }}
+              >
+                <div style={{ fontSize: 34, fontWeight: 700, color: loadColor }}>
+                  {loadLabel}
+                </div>
+                <div style={{ color: "#64748b", marginTop: 6 }}>
+                  Current Load
+                </div>
+                <div
+                  style={{
+                    marginTop: 12,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    background: loadBg,
+                    border: `1px solid ${loadBorder}`,
+                    color: loadColor,
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: loadColor,
+                    }}
+                  />
+                  Queue pressure
                 </div>
               </div>
             </div>
 
             <div
               style={{
-                background:"var(--surf)", border:"1px solid var(--bdr)",
-                borderRadius:16, overflow:"hidden"
+                background: "var(--surf)",
+                border: "1px solid var(--bdr)",
+                borderRadius: 16,
+                overflow: "hidden",
               }}
             >
               <div
                 style={{
-                  padding:"18px 24px", borderBottom:"1px solid var(--bdr)", fontWeight:700
+                  padding: "18px 24px",
+                  borderBottom: "1px solid var(--bdr)",
+                  fontWeight: 700,
                 }}
               >
                 Live Queue Information
               </div>
 
-              <div style={{ overflowX:"auto" }}>
-                <table style={{ width:"100%", borderCollapse:"collapse", minWidth:860 }}>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
                   <thead>
-                    <tr style={{ borderBottom:"1px solid var(--bdr)" }}>
+                    <tr style={{ borderBottom: "1px solid var(--bdr)" }}>
                       {["Patient", "Position", "Status", "Estimated Wait"].map((h) => (
                         <th
                           key={h}
                           style={{
-                            padding:"14px 20px", textAlign:"left", fontSize:11,
-                            color:"#64748b", fontWeight:600, textTransform:"uppercase",
-                            letterSpacing:"1px"
+                            padding: "14px 20px",
+                            textAlign: "left",
+                            fontSize: 11,
+                            color: "#64748b",
+                            fontWeight: 600,
+                            textTransform: "uppercase",
+                            letterSpacing: "1px",
                           }}
                         >
                           {h}
@@ -2595,26 +2700,29 @@ function PatientPublicView({ onBack }) {
                         <tr
                           key={p.firestoreId}
                           style={{
-                            borderBottom:"1px solid var(--bdr)", opacity:isCompleted ? 0.7 : 1
+                            borderBottom: "1px solid var(--bdr)",
+                            opacity: isCompleted ? 0.7 : 1,
                           }}
                         >
-                          <td style={{ padding:"16px 20px", fontWeight:600 }}>
+                          <td style={{ padding: "16px 20px", fontWeight: 600 }}>
                             {p.name}
                           </td>
 
                           <td
                             style={{
-                              padding:"16px 20px", fontWeight:600, color:"#94a3b8"
+                              padding: "16px 20px",
+                              fontWeight: 600,
+                              color: "#94a3b8",
                             }}
                           >
                             {isCompleted ? "—" : `#${queuePositionMap[p.firestoreId]}`}
                           </td>
 
-                          <td style={{ padding:"16px 20px" }}>
+                          <td style={{ padding: "16px 20px" }}>
                             <Pill status={p.portalStatus || p.status} />
                           </td>
 
-                          <td style={{ padding:"16px 20px" }}>
+                          <td style={{ padding: "16px 20px" }}>
                             {isCompleted
                               ? "Completed"
                               : `${p.waitMinutes || 0}–${(p.waitMinutes || 0) + 10} min`}
@@ -2628,7 +2736,9 @@ function PatientPublicView({ onBack }) {
                         <td
                           colSpan={4}
                           style={{
-                            padding:30, textAlign:"center", color:"#64748b"
+                            padding: 30,
+                            textAlign: "center",
+                            color: "#64748b",
                           }}
                         >
                           No queue data available.
@@ -2645,7 +2755,6 @@ function PatientPublicView({ onBack }) {
     </div>
   );
 }
-
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoad, setAuthLoad] = useState(true);
