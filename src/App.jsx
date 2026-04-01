@@ -90,7 +90,6 @@ const SC = {
   Complete: { bg:"rgba(100,116,139,.15)", c:"#94a3b8", b:"rgba(100,116,139,.3)", d:"#94a3b8", a:false },
   Completed: { bg:"rgba(100,116,139,.15)", c:"#94a3b8", b:"rgba(100,116,139,.3)", d:"#94a3b8", a:false },
   Urgent: { bg:"rgba(239,68,68,.15)", c:"#fca5a5", b:"rgba(239,68,68,.4)", d:"#f87171", a:true },
-  Next: { bg:"rgba(16,185,129,.12)", c:"#34d399", b:"rgba(16,185,129,.3)", d:"#34d399", a:false },
   "Be prepared": { bg:"rgba(245,158,11,.12)", c:"#fbbf24", b:"rgba(245,158,11,.25)", d:"#f59e0b", a:false },
 };
 
@@ -892,6 +891,7 @@ function DashboardPage({
   compactMode,
 }) {
   const isDone = (p) => ["Complete", "Completed"].includes(p.status);
+
   const activePatients = useMemo(
     () => patients.filter((p) => !isDone(p)),
     [patients]
@@ -908,17 +908,20 @@ function DashboardPage({
         queueStatusBg: "var(--tdim)",
         queueStatusBorder: "rgba(0,212,170,.2)",
         emergencyCount: 0,
+        load: "Low",
       };
     }
 
-    const totalWaiting = activePatients.filter((p) =>
-      ["Waiting", "Emergency", "Treatment"].includes(p.status)
-    ).length;
+    const waitingPatients = activePatients.filter((p) =>
+      ["Waiting", "Emergency", "Critical", "Urgent"].includes(p.status)
+    );
 
-    const avgWait = activePatients.length
+    const totalWaiting = waitingPatients.length;
+
+    const avgWait = waitingPatients.length
       ? Math.round(
-          activePatients.reduce((a, p) => a + (p.waitMinutes || 0), 0) /
-            activePatients.length
+          waitingPatients.reduce((a, p) => a + (p.waitMinutes || 0), 0) /
+            waitingPatients.length
         )
       : 0;
 
@@ -927,15 +930,20 @@ function DashboardPage({
     ).length;
 
     const nextPatient =
-      [...activePatients].sort((a, b) => {
-        const aEmergency = a.status === "Emergency" ? 1 : 0;
-        const bEmergency = b.status === "Emergency" ? 1 : 0;
-        return (
-          bEmergency - aEmergency ||
-          (b.priority || 0) - (a.priority || 0) ||
-          (a.waitMinutes || 0) - (b.waitMinutes || 0)
-        );
-      })[0] || null;
+    [...activePatients]
+    .filter((p) =>
+      ["Waiting", "Emergency", "Critical", "Urgent"].includes(p.status)
+    )
+    .sort((a, b) => {
+      const aEmergency = a.status === "Emergency" ? 1 : 0;
+      const bEmergency = b.status === "Emergency" ? 1 : 0;
+
+      return (
+        bEmergency - aEmergency ||
+        (b.priority || 0) - (a.priority || 0) ||
+        (a.waitMinutes || 0) - (b.waitMinutes || 0)
+      );
+    })[0] || null;
 
     let queueStatus = "Low Load";
     let queueStatusColor = "var(--teal)";
@@ -954,6 +962,13 @@ function DashboardPage({
       queueStatusBorder = "rgba(245,158,11,.25)";
     }
 
+    const load =
+      waitingPatients.length >= 8
+        ? "High"
+        : waitingPatients.length >= 4
+        ? "Moderate"
+        : "Low";
+
     return {
       totalWaiting,
       avgWait,
@@ -963,6 +978,7 @@ function DashboardPage({
       queueStatusBg,
       queueStatusBorder,
       emergencyCount,
+      load,
     };
   }, [patients, activePatients]);
 
@@ -1022,7 +1038,7 @@ function DashboardPage({
       val: `${metrics.avgWait} min`,
       ac: "#60a5fa",
       bg: "rgba(59,130,246,.12)",
-      sub: "Active queue only",
+      sub: "Waiting queue only",
     },
   ];
 
@@ -1108,7 +1124,8 @@ function DashboardPage({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4,1fr)",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          alignItems: "stretch",
           gap: 16,
           marginBottom: 28,
         }}
@@ -1145,6 +1162,7 @@ function DashboardPage({
                 fontSize: 36,
                 fontWeight: 700,
                 letterSpacing: -1.5,
+                color: m.ac === "var(--teal)" ? "var(--text)" : m.ac,
               }}
             >
               {m.val}
@@ -1223,7 +1241,7 @@ function DashboardPage({
                     fontWeight: 600,
                   }}
                 >
-                  {(metrics.nextPatient.waitMinutes || 0)} min
+                  {metrics.nextPatient.waitMinutes || 0} min
                 </span>
               </div>
               <button
@@ -1288,17 +1306,40 @@ function DashboardPage({
           </div>
 
           <div style={{ display: "grid", gap: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#94a3b8" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: 12,
+                color: "#94a3b8",
+              }}
+            >
               <span>Waiting now</span>
               <strong style={{ color: "var(--text)" }}>{metrics.totalWaiting}</strong>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#94a3b8" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: 12,
+                color: "#94a3b8",
+              }}
+            >
               <span>Average wait</span>
               <strong style={{ color: "var(--text)" }}>{metrics.avgWait} min</strong>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#94a3b8" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: 12,
+                color: "#94a3b8",
+              }}
+            >
               <span>Emergency count</span>
-              <strong style={{ color: "var(--text)" }}>{metrics.emergencyCount}</strong>
+              <strong style={{ color: "var(--text)" }}>
+                {metrics.emergencyCount}
+              </strong>
             </div>
           </div>
         </div>
@@ -1363,7 +1404,13 @@ function DashboardPage({
                     <Av name={p.name} />
                     <div>
                       <div style={{ fontWeight: 600, fontSize: 15 }}>{p.name}</div>
-                      <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "#64748b",
+                          marginTop: 2,
+                        }}
+                      >
                         {p.room} · {p.condition}
                       </div>
                     </div>
@@ -1373,8 +1420,12 @@ function DashboardPage({
 
                 <div style={{ display: "flex", gap: 8 }}>
                   <BtnSm onClick={() => setSelectedId(p.firestoreId)}>View</BtnSm>
-                  <BtnSm v="bump" onClick={() => onBump(p.firestoreId)}>Bump</BtnSm>
-                  <BtnSm v="adv" onClick={() => onAdvance(p.firestoreId)}>Advance</BtnSm>
+                  <BtnSm v="bump" onClick={() => onBump(p.firestoreId)}>
+                    Bump
+                  </BtnSm>
+                  <BtnSm v="adv" onClick={() => onAdvance(p.firestoreId)}>
+                    Advance
+                  </BtnSm>
                 </div>
               </div>
             ))}
@@ -1476,11 +1527,12 @@ function DashboardPage({
                     onClick={() => setSelectedId(p.firestoreId)}
                     style={{
                       borderBottom: "1px solid var(--bdr)",
-                      background: selectedId === p.firestoreId
-                        ? "rgba(0,212,170,.06)"
-                        : done
-                        ? "rgba(148,163,184,.03)"
-                        : "transparent",
+                      background:
+                        selectedId === p.firestoreId
+                          ? "rgba(0,212,170,.06)"
+                          : done
+                          ? "rgba(148,163,184,.03)"
+                          : "transparent",
                       cursor: "pointer",
                       transition: "background .15s",
                       opacity: done ? 0.78 : 1,
@@ -1491,7 +1543,13 @@ function DashboardPage({
                         <Av name={p.name} />
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
-                          <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "#64748b",
+                              marginTop: 2,
+                            }}
+                          >
                             {p.condition}
                           </div>
                         </div>
@@ -1610,7 +1668,6 @@ function DashboardPage({
     </div>
   );
 }
-
 function TriagePage({ patients, selectedId, setSelectedId, onAdvance, onBump, onAdd, onEdit }) {
   return (
     <div className="pa">
@@ -2321,18 +2378,18 @@ function MainApp({ user }) {
           )}
 
           {activePage === "dashboard" && (
-            <DashboardPage
+           <DashboardPage
               patients={filtered}
-              selectedId={selectedId}
-              setSelectedId={setSelId}
-              sortMode={sortMode}
-              setSortMode={setSort}
-              onAdvance={advancePatient}
-              onBump={bumpPriority}
-              onAdd={openAdd}
-              onEdit={openEdit}
-              compactMode={compactMode}
-            />
+                selectedId={selectedId}
+                setSelectedId={setSelId}
+                sortMode={sortMode}
+                setSortMode={setSort}
+                onAdvance={advancePatient}
+                onBump={bumpPriority}
+                onAdd={openAdd}
+                onEdit={openEdit}
+                compactMode={compactMode}
+              />
           )}
 
           {activePage === "triage" && (
@@ -2740,9 +2797,9 @@ const treatmentPatients = useMemo(() => {
                               color: "#94a3b8",
                             }}
                           >
-                            {isCompleted || p.status === "Treatment"
-  ? "—"
-  : `#${queuePositionMap[p.firestoreId]}`}
+                            {isCompleted || p.status === "Treatment" || p.portalStatus === "Next"
+                              ? "—"
+                              : `#${queuePositionMap[p.firestoreId]}`}
                           </td>
 
                           <td style={{ padding: "16px 20px" }}>
@@ -2752,7 +2809,9 @@ const treatmentPatients = useMemo(() => {
                           <td style={{ padding: "16px 20px" }}>
                             {isCompleted
                               ? "Completed"
-                              : `${p.waitMinutes || 0}–${(p.waitMinutes || 0) + 10} min`}
+                              : p.status === "Treatment" || p.portalStatus === "Next"
+                              ? "Getting Treated"
+                                : `${p.waitMinutes || 0}–${(p.waitMinutes || 0) + 10} min`}
                           </td>
                         </tr>
                       );
