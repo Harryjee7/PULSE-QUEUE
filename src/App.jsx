@@ -95,23 +95,42 @@ const SC = {
 };
 
 function Pill({ status }) {
-  const s = SC[status] || SC.Waiting;
+  const normalizedStatus = status === "Next" ? "Treatment" : status;
+  const label = status === "Next" ? "Getting Treated" : status;
+  const s = SC[normalizedStatus] || SC.Waiting;
+
   return (
-    <span style={{
-      display:"inline-flex", alignItems:"center", gap:6, padding:"4px 12px",
-      borderRadius:999, background:s.bg, color:s.c, border:`1px solid ${s.b}`,
-      fontSize:11, fontWeight:600, fontFamily:"Inter, sans-serif", whiteSpace:"nowrap",
-      animation:s.a ? "pe 1.8s ease-in-out infinite" : "none"
-    }}>
-      <span style={{
-        width:6, height:6, borderRadius:"50%", background:s.d, flexShrink:0,
-        animation:s.a ? "pd 1.8s ease-in-out infinite" : "none"
-      }}/>
-      {status}
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "4px 12px",
+        borderRadius: 999,
+        background: s.bg,
+        color: s.c,
+        border: `1px solid ${s.b}`,
+        fontSize: 11,
+        fontWeight: 600,
+        fontFamily: "Inter, sans-serif",
+        whiteSpace: "nowrap",
+        animation: s.a ? "pe 1.8s ease-in-out infinite" : "none",
+      }}
+    >
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: s.d,
+          flexShrink: 0,
+          animation: s.a ? "pd 1.8s ease-in-out infinite" : "none",
+        }}
+      />
+      {label}
     </span>
   );
 }
-
 function Av({ name="?", size="md" }) {
   const ini = (name || "?").split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
   const dim = size === "lg" ? 52 : size === "sm" ? 30 : 38;
@@ -2428,7 +2447,9 @@ function PatientPublicView({ onBack }) {
   }, [patients]);
 
   const queueOrderedPatients = useMemo(() => {
-    return [...activePatients].sort((a, b) => {
+  return [...activePatients]
+    .filter((p) => !["Treatment"].includes(p.status))
+    .sort((a, b) => {
       const aEmergency = a.status === "Emergency" ? 1 : 0;
       const bEmergency = b.status === "Emergency" ? 1 : 0;
 
@@ -2438,7 +2459,11 @@ function PatientPublicView({ onBack }) {
         (a.waitMinutes || 0) - (b.waitMinutes || 0)
       );
     });
-  }, [activePatients]);
+}, [activePatients]);
+
+const treatmentPatients = useMemo(() => {
+  return activePatients.filter((p) => p.status === "Treatment");
+}, [activePatients]);
 
   const completedPatients = useMemo(() => {
     return patients.filter((p) =>
@@ -2447,8 +2472,8 @@ function PatientPublicView({ onBack }) {
   }, [patients]);
 
   const sortedPatients = useMemo(() => {
-    return [...queueOrderedPatients, ...completedPatients];
-  }, [queueOrderedPatients, completedPatients]);
+  return [...queueOrderedPatients, ...treatmentPatients, ...completedPatients];
+}, [queueOrderedPatients, treatmentPatients, completedPatients]);
 
   const queuePositionMap = useMemo(() => {
     const map = {};
@@ -2715,7 +2740,9 @@ function PatientPublicView({ onBack }) {
                               color: "#94a3b8",
                             }}
                           >
-                            {isCompleted ? "—" : `#${queuePositionMap[p.firestoreId]}`}
+                            {isCompleted || p.status === "Treatment"
+  ? "—"
+  : `#${queuePositionMap[p.firestoreId]}`}
                           </td>
 
                           <td style={{ padding: "16px 20px" }}>
