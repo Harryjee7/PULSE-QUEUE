@@ -8,6 +8,7 @@ import {
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   onSnapshot,
   serverTimestamp,
@@ -1668,7 +1669,7 @@ function DashboardPage({
     </div>
   );
 }
-function TriagePage({ patients, selectedId, setSelectedId, onAdvance, onBump, onAdd, onEdit }) {
+function TriagePage({ patients, selectedId, setSelectedId, onAdvance, onBump, onAdd, onEdit, onRemove }) {
   return (
     <div className="pa">
       <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", marginBottom:28 }}>
@@ -1710,6 +1711,7 @@ function TriagePage({ patients, selectedId, setSelectedId, onAdvance, onBump, on
                 <BtnSm onClick={(e) => { e.stopPropagation(); setSelectedId(p.firestoreId); }}>Select</BtnSm>
               </div>
             </div>
+
             <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:12 }}>
               <Pill status={p.status}/>
               <span style={{ padding:"3px 10px", borderRadius:6, fontSize:11, fontFamily:"Inter, sans-serif", background:"rgba(255,255,255,.06)", color:"#64748b" }}>
@@ -1719,25 +1721,69 @@ function TriagePage({ patients, selectedId, setSelectedId, onAdvance, onBump, on
                 {p.waitMinutes || 0}m
               </span>
             </div>
+
             <p style={{ fontSize:13, color:"#94a3b8", lineHeight:1.55, marginBottom:14, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>
               {p.lastUpdate}
             </p>
-            <div style={{ display:"flex", gap:8 }}>
-              <button
-                onClick={(e) => { e.stopPropagation(); onAdvance(p.firestoreId); }}
-                style={{ flex:1, background:"var(--teal)", color:"#000", border:"none", padding:"10px 0", borderRadius:8, fontWeight:600, fontSize:13 }}
-              >
-                Advance
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onBump(p.firestoreId); }}
-                style={{ flex:1, background:"rgba(255,255,255,.06)", border:"1px solid var(--bdr)", color:"var(--text)", padding:"10px 0", borderRadius:8, fontSize:13 }}
-              >
-                Bump Priority
-              </button>
+
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+              {!["Complete", "Completed"].includes(p.status) ? (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onAdvance(p.firestoreId); }}
+                    style={{
+                      flex:1,
+                      background:"var(--teal)",
+                      color:"#000",
+                      border:"none",
+                      padding:"10px 0",
+                      borderRadius:8,
+                      fontWeight:600,
+                      fontSize:13
+                    }}
+                  >
+                    Advance
+                  </button>
+
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onBump(p.firestoreId); }}
+                    style={{
+                      flex:1,
+                      background:"rgba(255,255,255,.06)",
+                      border:"1px solid var(--bdr)",
+                      color:"var(--text)",
+                      padding:"10px 0",
+                      borderRadius:8,
+                      fontSize:13
+                    }}
+                  >
+                    Bump Priority
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(p.firestoreId);
+                  }}
+                  style={{
+                    width:"100%",
+                    background:"rgba(239,68,68,.12)",
+                    border:"1px solid rgba(239,68,68,.28)",
+                    color:"#f87171",
+                    padding:"10px 0",
+                    borderRadius:8,
+                    fontWeight:600,
+                    fontSize:13
+                  }}
+                >
+                  Remove Patient
+                </button>
+              )}
             </div>
           </div>
         ))}
+
         {patients.length === 0 && (
           <div style={{ gridColumn:"1/-1", textAlign:"center", padding:60, color:"#64748b" }}>
             No patients in triage.
@@ -1747,7 +1793,6 @@ function TriagePage({ patients, selectedId, setSelectedId, onAdvance, onBump, on
     </div>
   );
 }
-
 function PortalPage({ patient }) {
   if (!patient) {
     return (
@@ -1929,6 +1974,7 @@ const BST = {
   adv:{ background:"var(--teal)", color:"#000", border:"none", boxShadow:"0 0 8px var(--tglow)" },
   bump:{ background:"rgba(245,158,11,.12)", color:"#f59e0b", border:"1px solid rgba(245,158,11,.25)" },
   edit:{ background:"rgba(99,102,241,.12)", color:"#a5b4fc", border:"1px solid rgba(99,102,241,.25)" },
+  delete:{ background:"rgba(239,68,68,.12)", color:"#f87171", border:"1px solid rgba(239,68,68,.28)" },
 };
 
 function BtnSm({ v="default", children, style={}, onClick }) {
@@ -2137,6 +2183,28 @@ function MainApp({ user }) {
       setDbErr("Could not advance: " + e.message);
     }
   }
+  
+  async function removePatient(fid) {
+  const p = patients.find((x) => x.firestoreId === fid);
+  if (!p) return;
+
+  const ok = window.confirm(
+    `Remove ${p.name} from the system?\n\nThis will delete the patient from Dashboard, Triage Monitor, Patient View, and Room Overview.`
+  );
+
+  if (!ok) return;
+
+  try {
+    await deleteDoc(doc(db, "patients", fid));
+
+    if (selectedId === fid) {
+      const remaining = patients.filter((x) => x.firestoreId !== fid);
+      setSelId(remaining.length ? remaining[0].firestoreId : null);
+    }
+  } catch (e) {
+    setDbErr("Could not remove patient: " + e.message);
+  }
+}
 
   function openAdd() {
     setEditTarget(null);
@@ -2401,6 +2469,7 @@ function MainApp({ user }) {
               onBump={bumpPriority}
               onAdd={openAdd}
               onEdit={openEdit}
+              onRemove={removePatient}
             />
           )}
 
