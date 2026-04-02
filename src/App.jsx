@@ -2010,6 +2010,7 @@ function MainApp({ user }) {
   const [soundAlerts, setSoundAlerts] = useState(localStorage.getItem("pq-sound") !== "0");
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [lastAlertIds, setLastAlertIds] = useState([]);
 
@@ -2032,6 +2033,10 @@ function MainApp({ user }) {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  useEffect(() => {
+    setShowProfileMenu(false);
+  }, [activePage]);
+
   const showInlinePanel = vw >= 1500;
   const shellCols = showInlinePanel
     ? "230px minmax(0,1fr) 300px"
@@ -2042,7 +2047,7 @@ function MainApp({ user }) {
       collection(db, "patients"),
       (snap) => {
         const data = snap.docs
-          .map((d) => ({ firestoreId:d.id, ...d.data() }))
+          .map((d) => ({ firestoreId: d.id, ...d.data() }))
           .sort((a, b) => {
             const aSec = a.createdAt?.seconds || 0;
             const bSec = b.createdAt?.seconds || 0;
@@ -2072,7 +2077,7 @@ function MainApp({ user }) {
       id: `${p.firestoreId}-${p.status}`,
       title: p.status === "Emergency" ? "Emergency Alert" : "Critical Alert",
       message: `${p.name} requires immediate attention in ${p.room || "unassigned room"}.`,
-      time: new Date().toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }),
+      time: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
       color: "#f87171",
     }));
 
@@ -2173,38 +2178,20 @@ function MainApp({ user }) {
         status: ns,
         portalStatus: np,
         waitMinutes: Math.max(0, (p.waitMinutes || 0) - 6),
-        lastUpdate: ns === "Complete"
-          ? "Visit completed and summary prepared."
-          : "Patient moved to the next care stage.",
-        timeline: [...(p.timeline || []), ns === "Complete" ? "Visit completed" : "Moved to next care stage"],
+        lastUpdate:
+          ns === "Complete"
+            ? "Visit completed and summary prepared."
+            : "Patient moved to the next care stage.",
+        timeline: [
+          ...(p.timeline || []),
+          ns === "Complete" ? "Visit completed" : "Moved to next care stage",
+        ],
       });
       setSelId(fid);
     } catch (e) {
       setDbErr("Could not advance: " + e.message);
     }
   }
-  
-  async function removePatient(fid) {
-  const p = patients.find((x) => x.firestoreId === fid);
-  if (!p) return;
-
-  const ok = window.confirm(
-    `Remove ${p.name} from the system?\n\nThis will delete the patient from Dashboard, Triage Monitor, Patient View, and Room Overview.`
-  );
-
-  if (!ok) return;
-
-  try {
-    await deleteDoc(doc(db, "patients", fid));
-
-    if (selectedId === fid) {
-      const remaining = patients.filter((x) => x.firestoreId !== fid);
-      setSelId(remaining.length ? remaining[0].firestoreId : null);
-    }
-  } catch (e) {
-    setDbErr("Could not remove patient: " + e.message);
-  }
-}
 
   function openAdd() {
     setEditTarget(null);
@@ -2223,12 +2210,27 @@ function MainApp({ user }) {
 
   if (dbLoad) {
     return (
-      <div style={{
-        minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
-        flexDirection:"column", gap:16, position:"relative", zIndex:1
-      }}>
-        <Spin size={32}/>
-        <span style={{ fontFamily:"Inter, sans-serif", fontSize:11, color:"#64748b", letterSpacing:"2px" }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexDirection: "column",
+          gap: 16,
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <Spin size={32} />
+        <span
+          style={{
+            fontFamily: "Inter, sans-serif",
+            fontSize: 11,
+            color: "#64748b",
+            letterSpacing: "2px",
+          }}
+        >
           LOADING QUEUE DATA…
         </span>
       </div>
@@ -2252,31 +2254,60 @@ function MainApp({ user }) {
 
       <div
         style={{
-          position:"relative", zIndex:1, display:"grid",
-          gridTemplateColumns:shellCols,
-          gridTemplateRows:"64px 1fr",
-          minHeight:"100vh", width:"100%", overflow:"hidden"
+          position: "relative",
+          zIndex: 1,
+          display: "grid",
+          gridTemplateColumns: shellCols,
+          gridTemplateRows: "64px 1fr",
+          minHeight: "100vh",
+          width: "100%",
+          overflow: "hidden",
         }}
       >
         <aside
           style={{
-            gridRow:"1/3", background:"var(--surf)", borderRight:"1px solid var(--bdr)",
-            display:"flex", flexDirection:"column", padding:"20px 14px", gap:4, minWidth:0
+            gridRow: "1/3",
+            background: "var(--surf)",
+            borderRight: "1px solid var(--bdr)",
+            display: "flex",
+            flexDirection: "column",
+            padding: "20px 14px",
+            gap: 4,
+            minWidth: 0,
           }}
         >
           <div
             style={{
-              display:"flex", alignItems:"center", gap:12, padding:"12px 8px 24px",
-              borderBottom:"1px solid var(--bdr)", marginBottom:12
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "12px 8px 24px",
+              borderBottom: "1px solid var(--bdr)",
+              marginBottom: 12,
             }}
           >
             <div
               style={{
-                width:46, height:46, borderRadius:12, border:"3px solid var(--teal)",
-                flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center"
+                width: 46,
+                height: 46,
+                borderRadius: 12,
+                border: "3px solid var(--teal)",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--teal)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <rect x="3" y="5" width="18" height="14" rx="2"></rect>
                 <polyline points="5,12 9,12 11,8 14,16 16,12 19,12"></polyline>
               </svg>
@@ -2285,16 +2316,23 @@ function MainApp({ user }) {
             <div>
               <div
                 style={{
-                  fontFamily:"Inter, sans-serif", fontWeight:700, fontSize:20,
-                  letterSpacing:"-0.8px", color:"var(--teal)", lineHeight:1
+                  fontFamily: "Inter, sans-serif",
+                  fontWeight: 700,
+                  fontSize: 20,
+                  letterSpacing: "-0.8px",
+                  color: "var(--teal)",
+                  lineHeight: 1,
                 }}
               >
                 PulseQueue
               </div>
               <div
                 style={{
-                  fontFamily:"Inter, sans-serif", fontSize:10, color:"var(--teal)",
-                  letterSpacing:"2px", marginTop:4
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: 10,
+                  color: "var(--teal)",
+                  letterSpacing: "2px",
+                  marginTop: 4,
                 }}
               >
                 LIVE QUEUE SYSTEM
@@ -2307,92 +2345,162 @@ function MainApp({ user }) {
               key={key}
               onClick={() => setPage(key)}
               style={{
-                width:"100%",
-                background:activePage === key ? "var(--tdim)" : "none",
-                border:activePage === key ? "1px solid rgba(0,212,170,.2)" : "1px solid transparent",
-                color:activePage === key ? "var(--teal)" : "#64748b",
-                display:"flex", alignItems:"center", gap:12, padding:"12px 14px", borderRadius:10,
-                fontSize:14, fontWeight:500, cursor:"pointer", transition:"all .2s", textAlign:"left"
+                width: "100%",
+                background: activePage === key ? "var(--tdim)" : "none",
+                border:
+                  activePage === key
+                    ? "1px solid rgba(0,212,170,.2)"
+                    : "1px solid transparent",
+                color: activePage === key ? "var(--teal)" : "#64748b",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 14px",
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all .2s",
+                textAlign: "left",
               }}
             >
-              {icon}{label}
+              {icon}
+              {label}
             </button>
           ))}
 
-          <div style={{ marginTop:"auto", background:"var(--panel)", border:"1px solid var(--bdr)", borderRadius:10, padding:14 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-              <Av name={user.email?.split("@")[0] || "Staff"} size="sm"/>
+          <div
+            style={{
+              marginTop: "auto",
+              background: "var(--panel)",
+              border: "1px solid var(--bdr)",
+              borderRadius: 10,
+              padding: 14,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Av name={user.email?.split("@")[0] || "Staff"} size="sm" />
               <div>
-                <div style={{ fontSize:12, fontWeight:600, maxWidth:150, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    maxWidth: 150,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   {user.email}
                 </div>
-                <div style={{ fontSize:11, color:"#64748b", marginTop:1 }}>Authenticated Staff</div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 1 }}>
+                  Authenticated Staff
+                </div>
               </div>
             </div>
-            <button
-              onClick={() => signOut(auth)}
-              style={{
-                width:"100%", background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.25)",
-                color:"#f87171", padding:"9px 14px", borderRadius:8, fontSize:12, fontWeight:600,
-                display:"flex", alignItems:"center", justifyContent:"center", gap:8
-              }}
-            >
-              {I.Logout} Sign Out
-            </button>
           </div>
 
-          <div style={{
-            marginTop:8, background:"rgba(239,68,68,.08)", border:"1px solid rgba(239,68,68,.2)",
-            borderRadius:10, padding:"10px 14px", display:"flex", alignItems:"center", gap:8,
-            fontSize:12, color:"#f87171", fontWeight:500
-          }}>
+          <div
+            style={{
+              marginTop: 8,
+              background: "rgba(239,68,68,.08)",
+              border: "1px solid rgba(239,68,68,.2)",
+              borderRadius: 10,
+              padding: "10px 14px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12,
+              color: "#f87171",
+              fontWeight: 500,
+            }}
+          >
             {I.Warn} Emergency Protocol Active
           </div>
         </aside>
 
-        <header style={{
-          background:"var(--surf)", borderBottom:"1px solid var(--bdr)",
-          display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 28px"
-        }}>
-          <div style={{ fontFamily:"Inter, sans-serif", fontSize:19, fontWeight:700 }}>
+        <header
+          style={{
+            background: "var(--surf)",
+            borderBottom: "1px solid var(--bdr)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 28px",
+          }}
+        >
+          <div style={{ fontFamily: "Inter, sans-serif", fontSize: 19, fontWeight: 700 }}>
             {NAV.find((n) => n.key === activePage)?.label}
           </div>
 
-          <div style={{ position:"relative", flex:1, maxWidth:340, margin:"0 28px" }}>
-            <div style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:"#64748b" }}>{I.Search}</div>
+          <div style={{ position: "relative", flex: 1, maxWidth: 340, margin: "0 28px" }}>
+            <div
+              style={{
+                position: "absolute",
+                left: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "#64748b",
+              }}
+            >
+              {I.Search}
+            </div>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search patients, rooms, IDs…"
               style={{
-                width:"100%", background:"var(--panel)", border:"1px solid var(--bdr)",
-                borderRadius:10, padding:"9px 14px 9px 40px", color:"var(--text)", fontSize:14, transition:"border-color .2s"
+                width: "100%",
+                background: "var(--panel)",
+                border: "1px solid var(--bdr)",
+                borderRadius: 10,
+                padding: "9px 14px 9px 40px",
+                color: "var(--text)",
+                fontSize: 14,
+                transition: "border-color .2s",
               }}
               onFocus={fo}
               onBlur={bl}
             />
           </div>
 
-          <div style={{ display:"flex", alignItems:"center", gap:6, position:"relative" }}>
-            <div style={{ position:"relative" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
+            <div style={{ position: "relative" }}>
               <button
                 onClick={() => {
                   setShowNotifications((v) => !v);
                   setShowSettings(false);
+                  setShowProfileMenu(false);
                 }}
                 style={{
-                  background:"none", border:"none", color:"#64748b", padding:8, borderRadius:8,
-                  display:"flex", position:"relative"
+                  background: "none",
+                  border: "none",
+                  color: "#64748b",
+                  padding: 8,
+                  borderRadius: 8,
+                  display: "flex",
+                  position: "relative",
                 }}
               >
                 {I.Bell}
                 {notifications.length > 0 && (
                   <span
                     style={{
-                      position:"absolute", top:2, right:2, minWidth:16, height:16, borderRadius:999,
-                      background:"#ef4444", color:"#fff", fontSize:10, fontWeight:700,
-                      display:"flex", alignItems:"center", justifyContent:"center", padding:"0 4px"
+                      position: "absolute",
+                      top: 2,
+                      right: 2,
+                      minWidth: 16,
+                      height: 16,
+                      borderRadius: 999,
+                      background: "#ef4444",
+                      color: "#fff",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "0 4px",
                     }}
                   >
                     {notifications.length}
@@ -2412,52 +2520,158 @@ function MainApp({ user }) {
               onClick={() => {
                 setShowSettings(true);
                 setShowNotifications(false);
+                setShowProfileMenu(false);
               }}
               style={{
-                background:"none", border:"none", color:"#64748b", padding:8, borderRadius:8, display:"flex"
+                background: "none",
+                border: "none",
+                color: "#64748b",
+                padding: 8,
+                borderRadius: 8,
+                display: "flex",
               }}
             >
               {I.Cog}
             </button>
 
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginLeft:10, paddingLeft:14, borderLeft:"1px solid var(--bdr)" }}>
-              <div style={{ textAlign:"right" }}>
-                <div style={{ fontSize:13, fontWeight:600 }}>{user.email?.split("@")[0]}</div>
-                <div style={{ fontSize:11, color:"#64748b" }}>Staff</div>
-              </div>
-              <Av name={user.email?.split("@")[0] || "S"} size="sm"/>
+            <div
+              style={{
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                marginLeft: 10,
+                paddingLeft: 14,
+                borderLeft: "1px solid var(--bdr)",
+              }}
+            >
+              <button
+                onClick={() => {
+                  setShowProfileMenu((v) => !v);
+                  setShowNotifications(false);
+                  setShowSettings(false);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--text)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>
+                    {user.email?.split("@")[0]}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>Staff</div>
+                </div>
+                <Av name={user.email?.split("@")[0] || "S"} size="sm" />
+              </button>
+
+              {showProfileMenu && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 10px)",
+                    right: 0,
+                    width: 240,
+                    background: "var(--surf)",
+                    border: "1px solid var(--bdr)",
+                    borderRadius: 14,
+                    boxShadow: "0 18px 40px rgba(0,0,0,.28)",
+                    overflow: "hidden",
+                    zIndex: 130,
+                  }}
+                >
+                  <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--bdr)" }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "var(--text)",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {user.email}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+                      Authenticated Staff
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      setShowProfileMenu(false);
+                      await signOut(auth);
+                    }}
+                    style={{
+                      width: "100%",
+                      background: "rgba(239,68,68,.08)",
+                      border: "none",
+                      borderTop: "1px solid rgba(239,68,68,.18)",
+                      color: "#f87171",
+                      padding: "12px 16px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {I.Logout} Sign Out
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>
 
         <main
           style={{
-            padding:20, overflowY:"auto", overflowX:"hidden", background:"var(--bg)", minWidth:0
+            padding: 20,
+            overflowY: "auto",
+            overflowX: "hidden",
+            background: "var(--bg)",
+            minWidth: 0,
           }}
         >
           {dbErr && (
-            <div style={{
-              background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.3)",
-              borderRadius:10, padding:"10px 16px", fontSize:13, color:"#f87171",
-              marginBottom:20, display:"flex", alignItems:"center", gap:8
-            }}>
-              {I.Warn}{dbErr}
+            <div
+              style={{
+                background: "rgba(239,68,68,.1)",
+                border: "1px solid rgba(239,68,68,.3)",
+                borderRadius: 10,
+                padding: "10px 16px",
+                fontSize: 13,
+                color: "#f87171",
+                marginBottom: 20,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              {I.Warn}
+              {dbErr}
             </div>
           )}
 
           {activePage === "dashboard" && (
-           <DashboardPage
+            <DashboardPage
               patients={filtered}
-                selectedId={selectedId}
-                setSelectedId={setSelId}
-                sortMode={sortMode}
-                setSortMode={setSort}
-                onAdvance={advancePatient}
-                onBump={bumpPriority}
-                onAdd={openAdd}
-                onEdit={openEdit}
-                compactMode={compactMode}
-              />
+              selectedId={selectedId}
+              setSelectedId={setSelId}
+              sortMode={sortMode}
+              setSortMode={setSort}
+              onAdvance={advancePatient}
+              onBump={bumpPriority}
+              onAdd={openAdd}
+              onEdit={openEdit}
+              compactMode={compactMode}
+            />
           )}
 
           {activePage === "triage" && (
@@ -2469,19 +2683,29 @@ function MainApp({ user }) {
               onBump={bumpPriority}
               onAdd={openAdd}
               onEdit={openEdit}
-              onRemove={removePatient}
             />
           )}
 
           {activePage === "portal" && <PortalPage patient={selected} />}
-          {activePage === "rooms" && <RoomsPage patients={filtered} selectedId={selectedId} setSelectedId={setSelId} />}
+          {activePage === "rooms" && (
+            <RoomsPage
+              patients={filtered}
+              selectedId={selectedId}
+              setSelectedId={setSelId}
+            />
+          )}
         </main>
 
         {showInlinePanel ? (
           <aside
             style={{
-              gridRow:"2/3", background:"var(--surf)", borderLeft:"1px solid var(--bdr)",
-              padding:18, overflowY:"auto", minWidth:0, width:"100%"
+              gridRow: "2/3",
+              background: "var(--surf)",
+              borderLeft: "1px solid var(--bdr)",
+              padding: 18,
+              overflowY: "auto",
+              minWidth: 0,
+              width: "100%",
             }}
           >
             <DetailPanel
@@ -2496,9 +2720,17 @@ function MainApp({ user }) {
             <button
               onClick={() => setDetailsOpen(true)}
               style={{
-                position:"fixed", right:18, bottom:18, zIndex:50,
-                background:"var(--teal)", color:"#000", border:"none", borderRadius:12,
-                padding:"12px 16px", fontWeight:700, boxShadow:"0 0 20px var(--tglow)"
+                position: "fixed",
+                right: 18,
+                bottom: 18,
+                zIndex: 50,
+                background: "var(--teal)",
+                color: "#000",
+                border: "none",
+                borderRadius: 12,
+                padding: "12px 16px",
+                fontWeight: 700,
+                boxShadow: "0 0 20px var(--tglow)",
               }}
             >
               Open Details
@@ -2508,22 +2740,35 @@ function MainApp({ user }) {
               <div
                 onClick={() => setDetailsOpen(false)}
                 style={{
-                  position:"fixed", inset:0, background:"rgba(0,0,0,.45)", zIndex:60
+                  position: "fixed",
+                  inset: 0,
+                  background: "rgba(0,0,0,.45)",
+                  zIndex: 60,
                 }}
               >
                 <aside
                   onClick={(e) => e.stopPropagation()}
                   style={{
-                    position:"absolute", top:0, right:0, width:"min(92vw, 360px)", height:"100%",
-                    background:"var(--surf)", borderLeft:"1px solid var(--bdr)", padding:18, overflowY:"auto"
+                    position: "absolute",
+                    top: 0,
+                    right: 0,
+                    width: "min(92vw, 360px)",
+                    height: "100%",
+                    background: "var(--surf)",
+                    borderLeft: "1px solid var(--bdr)",
+                    padding: 18,
+                    overflowY: "auto",
                   }}
                 >
-                  <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
                     <button
                       onClick={() => setDetailsOpen(false)}
                       style={{
-                        background:"rgba(255,255,255,.06)", border:"1px solid var(--bdr)",
-                        color:"var(--text)", borderRadius:8, padding:"8px 10px"
+                        background: "rgba(255,255,255,.06)",
+                        border: "1px solid var(--bdr)",
+                        color: "var(--text)",
+                        borderRadius: 8,
+                        padding: "8px 10px",
                       }}
                     >
                       Close
@@ -2545,7 +2790,6 @@ function MainApp({ user }) {
     </>
   );
 }
-
 function PatientPublicView({ onBack }) {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
