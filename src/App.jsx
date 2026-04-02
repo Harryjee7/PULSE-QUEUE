@@ -2037,7 +2037,7 @@ function MainApp({ user }) {
     setShowProfileMenu(false);
   }, [activePage]);
 
-  const showInlinePanel = vw >= 1500;
+  const showInlinePanel = vw >= 30000;
   const shellCols = showInlinePanel
     ? "230px minmax(0,1fr) 300px"
     : "220px minmax(0,1fr)";
