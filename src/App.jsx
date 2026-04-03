@@ -2036,14 +2036,11 @@ function MainApp({ user }) {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  useEffect(() => {
-    setShowProfileMenu(false);
-  }, [activePage]);
-
-  const showInlinePanel = vw >= 1500;
-  const shellCols = showInlinePanel
-    ? "230px minmax(0,1fr) 300px"
-    : "220px minmax(0,1fr)";
+  // No permanent right-side details panel
+  const showInlinePanel = false;
+  const shellCols = vw < 900
+    ? "78px minmax(0,1fr)"
+    : "minmax(190px, 220px) minmax(0,1fr)";
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -2771,7 +2768,6 @@ function MainApp({ user }) {
     </>
   );
 }
-
 
 function PatientPublicView({ onBack }) {
   const [patients, setPatients] = useState([]);
