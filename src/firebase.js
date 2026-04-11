@@ -3,12 +3,12 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyByUchF4aBXLQzXvVMRRtgNH3USTSBzyps",
-  authDomain: "pulsequeue-fc760.firebaseapp.com",
-  projectId: "pulsequeue-fc760",
-  storageBucket: "pulsequeue-fc760.appspot.com",
-  messagingSenderId: "130410316053",
-  appId: "1:130410316053:web:1732d5bb5330223a06a91c",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
