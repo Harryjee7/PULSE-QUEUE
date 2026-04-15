@@ -10,7 +10,7 @@ PulseQueue is a real-time hospital queue management system that allows staff to 
 
 ```bash
 git clone <repo-url>
-cd PulseQueue
+cd PULSE-QUEUE
 ```
 
 2. Install dependencies:
